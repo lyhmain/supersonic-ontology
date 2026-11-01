@@ -8,7 +8,7 @@
 **SuperSonic dual plug-ins: Ontology-driven NL2Analytics + JEV+RAG Knowledge Base**
 Two sidecar plug-ins — deployable independently or as a decision engine for
 [SuperSonic](https://github.com/tencentmusic/supersonic), one minute to wire into your chatbot.
-*English README coming soon — see [docs/](docs/) (mostly bilingual code comments & API docs).*
+[English README](README_EN.md) 🇬🇧
 
 | 插件 | 形态 | 能力 | 入口 |
 |---|---|---|---|
