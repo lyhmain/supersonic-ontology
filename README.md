@@ -1,7 +1,14 @@
 # supersonic-ontology
 
-**SuperSonic 双插件包:本体驱动问数 + JEV+RAG 知识库**
-两个旁挂插件,均可独立部署,亦可作为 [SuperSonic](https://github.com/tencentmusic/supersonic) 的决策引擎,一分钟接入聊天机器人。
+[![License](https://img.shields.io/badge/license-Apache%202.0-green.svg)](LICENSE)
+[![Release](https://img.shields.io/github/v/release/lyhmain/supersonic-ontology)](https://github.com/lyhmain/supersonic-ontology/releases)
+[![SuperSonic](https://img.shields.io/badge/works%20with-SuperSonic-blue)](https://github.com/tencentmusic/supersonic)
+[![Stars](https://img.shields.io/github/stars/lyhmain/supersonic-ontology?style=social)](https://github.com/lyhmain/supersonic-ontology/stargazers)
+
+**SuperSonic dual plug-ins: Ontology-driven NL2Analytics + JEV+RAG Knowledge Base**
+Two sidecar plug-ins — deployable independently or as a decision engine for
+[SuperSonic](https://github.com/tencentmusic/supersonic), one minute to wire into your chatbot.
+*English README coming soon — see [docs/](docs/) (mostly bilingual code comments & API docs).*
 
 | 插件 | 形态 | 能力 | 入口 |
 |---|---|---|---|
@@ -11,6 +18,9 @@
 > 把"问数"的正确性从大模型手里拿回来:语义本体配置化、业务口径精确对拍、毫秒级响应、
 > 试问集验收"全绿才上线"。把"知识问答"的可信性同样拿回来:JEV 门控拒答、引用溯源、
 > 无据不答。LLM 只做它擅长的事——最终洞察的一句话总结。
+
+> ⭐ **如果这个项目帮到了你,欢迎点个 Star** —— 这是我们持续维护的最大动力。
+> ⭐ If this project helps you, please consider giving it a star!
 
 ---
 
