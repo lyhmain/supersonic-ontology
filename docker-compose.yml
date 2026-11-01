@@ -1,0 +1,55 @@
+services:
+  ontology-service:
+    build: .
+    container_name: supersonic-ontology
+    restart: unless-stopped
+    ports:
+      - "${PORT:-9102}:${PORT:-9102}"
+    environment:
+      ONTOLOGY_PROFILE: ${ONTOLOGY_PROFILE:-demo_tea}
+      ONTOLOGY_DIR: /app/profiles
+      JEV_CONFIG: /app/data/jev_config.json
+      DORIS_HOST: ${DORIS_HOST:-host.docker.internal}
+      DORIS_PORT: ${DORIS_PORT:-9030}
+      DORIS_USER: ${DORIS_USER:-root}
+      DORIS_PASS: ${DORIS_PASS:-}
+      DORIS_DB: ${DORIS_DB:-dw}
+      SUPERSONIC_BASE: ${SUPERSONIC_BASE:-}
+      SUPERSONIC_USER: ${SUPERSONIC_USER:-admin}
+      SUPERSONIC_PASS: ${SUPERSONIC_PASS:-}
+      GLM_BASE: ${GLM_BASE:-}
+      GLM_KEY: ${GLM_KEY:-}
+      GLM_MODEL: ${GLM_MODEL:-}
+    volumes:
+      - ./profiles:/app/profiles
+      - ./data:/app/data
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  kb-rag:
+    build:
+      context: .
+      dockerfile: Dockerfile.kb
+    container_name: supersonic-kb-rag
+    restart: unless-stopped
+    profiles: ["kb"]          # docker compose --profile kb up 启用
+    ports:
+      - "${KB_PORT:-9200}:${KB_PORT:-9200}"
+    environment:
+      PORT: ${KB_PORT:-9200}
+      LLM_API_BASE: ${LLM_API_BASE:-}
+      LLM_API_KEY: ${LLM_API_KEY:-}
+      EMBED_API_BASE: ${EMBED_API_BASE:-}
+      EMBED_API_KEY: ${EMBED_API_KEY:-}
+      EMBED_MODEL: ${EMBED_MODEL:-bge-m3}
+      EMBEDDING_DIM: ${EMBEDDING_DIM:-1024}
+      MILVUS_URL: ${MILVUS_URL:-}
+      MILVUS_USER: ${MILVUS_USER:-root}
+      MILVUS_PASSWORD: ${MILVUS_PASSWORD:-}
+      MINIO_ENDPOINT: ${MINIO_ENDPOINT:-}
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-}
+      PG_HOST: ${PG_HOST:-}
+      PG_PASSWORD: ${PG_PASSWORD:-}
+    volumes:
+      - ./data:/app/data

@@ -1,0 +1,127 @@
+openapi: 3.0.3
+info:
+  title: Jev 决策层 Sidecar（门前三振 / 可答门控 / 引用核查）
+  description: |
+    Jev 风格决策原语服务（百炼 qwen-flash 基座）。
+    - /v1/scope：门前三振，in_scope/out_of_scope/unclear 三分类
+    - /v1/answerability：可答门控，逐条抽取式判定取 max（近失陷阱敏感）
+    - /v1/citation_check：引用核查，[n] 主张是否被来源支撑
+  version: "1.0"
+servers:
+  - url: http://192.168.137.51:9101
+paths:
+  /v1/scope:
+    post:
+      operationId: jev_scope_gate
+      summary: 门前三振（路由前判断问题是否在受理范围）
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [question, scope_description]
+              properties:
+                question:
+                  type: string
+                  description: 用户问题
+                scope_description:
+                  type: string
+                  description: 受理范围全量描述（写全话题域，宁全勿缺）
+      responses:
+        "200":
+          description: 判定结果
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  choice:
+                    type: string
+                    description: in_scope / out_of_scope / unclear
+                  pass:
+                    type: boolean
+                    description: 是否放行检索
+                  probabilities:
+                    type: object
+                    description: 各选项校准概率
+  /v1/answerability:
+    post:
+      operationId: jev_answerability_gate
+      summary: 可答门控（检索后判断候选片段能否回答问题）
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [question, contexts]
+              properties:
+                question:
+                  type: string
+                  description: 用户问题
+                contexts:
+                  type: array
+                  items:
+                    type: string
+                  description: 候选片段文本列表（≤6 条）
+                threshold:
+                  type: number
+                  description: 放行阈值，默认 0.65
+      responses:
+        "200":
+          description: 判定结果
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  probability:
+                    type: number
+                    description: 可答概率（0~1）
+                  answerable:
+                    type: boolean
+                    description: 是否放行生成
+                  detail:
+                    type: array
+                    description: 逐条判定明细
+  /v1/citation_check:
+    post:
+      operationId: jev_citation_check
+      summary: 引用核查（答案 [n] 主张是否被来源支撑）
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [question, answer, sources]
+              properties:
+                question:
+                  type: string
+                answer:
+                  type: string
+                  description: 含 [n] 引用标注的答案
+                sources:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      index:
+                        type: integer
+                      chunk_text:
+                        type: string
+      responses:
+        "200":
+          description: 核查结果
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  supported:
+                    type: boolean
+                  unsupported_refs:
+                    type: array
+                    items:
+                      type: integer

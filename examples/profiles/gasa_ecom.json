@@ -1,0 +1,71 @@
+{
+  "profile": "gasa_ecom",
+  "domain": "高速服务区电商（智慧交通）",
+  "default_metric": "gmv",
+  "fact": {
+    "table": "dwd_order_info_inc o",
+    "date_col": "dt",
+    "paid_filter": "o.order_status = '1001'"
+  },
+  "ads": {
+    "table": "ads_gmv_total_day",
+    "metric_exprs": {
+      "gmv": "SUM(gmv)",
+      "order_cnt": "SUM(order_count)"
+    }
+  },
+  "metrics": {
+    "gmv":       {"name": "GMV", "words": ["GMV", "gmv", "销售额", "成交总额", "成交额", "营业额"],
+                  "col": "total_amount"},
+    "order_cnt": {"name": "订单量", "words": ["订单量", "订单数", "订单总数"],
+                  "count_col": "id"},
+    "payer_cnt": {"name": "支付用户数", "words": ["支付用户数", "支付人数", "付款用户数"],
+                  "count_col": "user_id"},
+    "avg_price": {"name": "客单价", "words": ["客单价", "平均订单金额"],
+                  "derive": {"num": "gmv", "den": "order_cnt"}}
+  },
+  "dimensions": {
+    "service_area": {"name": "服务区", "words": ["服务区"], "expr": "sa.name",
+                     "join": "LEFT JOIN dim_service_area sa ON o.service_area_id = sa.id"},
+    "county":       {"name": "县市", "words": ["县市"], "expr": "sa.county",
+                     "join": "LEFT JOIN dim_service_area sa ON o.service_area_id = sa.id"},
+    "road_section": {"name": "路段", "words": ["高速", "路段"], "expr": "sa.road_section",
+                     "join": "LEFT JOIN dim_service_area sa ON o.service_area_id = sa.id"},
+    "level":        {"name": "等级", "words": ["等级"], "expr": "sa.level",
+                     "join": "LEFT JOIN dim_service_area sa ON o.service_area_id = sa.id"},
+    "direction":    {"name": "方向", "words": ["方向"], "expr": "sa.direction",
+                     "join": "LEFT JOIN dim_service_area sa ON o.service_area_id = sa.id"},
+    "province":     {"name": "省份", "words": ["省份"], "expr": "p.name",
+                     "join": "LEFT JOIN dim_base_province p ON o.province_id = p.id"},
+    "member_level": {"name": "会员等级", "words": ["会员等级"], "expr": "u.user_level",
+                     "join": "LEFT JOIN dim_user_info u ON o.user_id = u.id"},
+    "member":       {"name": "会员", "words": ["会员", "用户", "客户"], "expr": "u.nick_name",
+                     "join": "LEFT JOIN dim_user_info u ON o.user_id = u.id",
+                     "group": "u.id, u.nick_name"},
+    "sku":          {"name": "商品", "words": ["sku", "商品", "单品"], "expr": "d.sku_name",
+                     "join": "JOIN dwd_order_detail_inc d ON d.order_id = o.id",
+                     "amount_override": {"gmv": "d.split_total_amount"}}
+  },
+  "value_tokens": [
+    {"attr": "service_area", "regex": "(县市\\d+服务区)"},
+    {"attr": "county", "regex": "(县市\\d+)"},
+    {"attr": "road_section",
+     "regex": "(G\\d+[一-龥A-Za-z0-9]{0,8}?)(?=近|是多少|GMV|订单|，|。|,|$|\\s)"}
+  ],
+  "holidays": {
+    "国庆": {"2025": ["2025-10-01", "2025-10-08"], "2026": ["2026-10-01", "2026-10-08"]},
+    "五一": {"2025": ["2025-05-01", "2025-05-05"], "2026": ["2026-05-01", "2026-05-05"]},
+    "中秋": {"2025": ["2025-10-03", "2025-10-06"], "2026": ["2026-09-25", "2026-09-27"]},
+    "清明": {"2025": ["2025-04-04", "2025-04-06"], "2026": ["2026-04-04", "2026-04-06"]},
+    "春节": {"2025": ["2025-01-28", "2025-02-04"], "2026": ["2026-02-15", "2026-02-22"]}
+  },
+  "intent": {
+    "analysis_words": ["为什么", "为何", "怎么", "如何", "分析", "解读", "洞察", "异常",
+                       "归因", "对比", "原因", "建议", "趋势", "走势", "波动", "变化",
+                       "分布", "why", "how", "analyze", "insight", "compare", "trend"],
+    "ratio_words": ["同比", "环比", "增长多少", "变化率", "增长了多少"],
+    "group_words": ["各", "每个", "分别", "排行", "排名", "最高", "最低"]
+  },
+  "attribution_default_dims": ["service_area", "province", "sku"],
+  "anomaly": {"z_warn": 2.0, "z_crit": 3.0, "baseline_days": 28}
+}

@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>KB-RAG 知识库 - 文档导入</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: "Microsoft YaHei", system-ui, sans-serif; background: #f5f6fa; color: #2f3542; }
+  .container { max-width: 720px; margin: 40px auto; padding: 0 16px; }
+  .card { background: #fff; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,.06); padding: 24px; margin-bottom: 20px; }
+  h1 { font-size: 20px; margin-bottom: 4px; }
+  .sub { color: #8395a7; font-size: 13px; margin-bottom: 20px; }
+  .drop { border: 2px dashed #dcdde1; border-radius: 10px; padding: 36px; text-align: center; cursor: pointer; transition: .2s; }
+  .drop:hover, .drop.drag { border-color: #3742fa; background: #f1f2ff; }
+  .drop .icon { font-size: 40px; }
+  .drop p { color: #8395a7; margin-top: 8px; font-size: 13px; }
+  .btn { display: inline-block; background: #3742fa; color: #fff; border: none; border-radius: 8px; padding: 10px 24px; font-size: 14px; cursor: pointer; }
+  .btn:disabled { background: #a4b0be; cursor: not-allowed; }
+  .task { margin-top: 20px; display: none; }
+  .task .head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+  .task .tid { font-family: monospace; font-size: 12px; color: #8395a7; }
+  .badge { font-size: 12px; padding: 3px 10px; border-radius: 12px; background: #ffeaa7; }
+  .badge.processing { background: #74b9ff; color: #fff; }
+  .badge.completed { background: #2ecc71; color: #fff; }
+  .badge.failed { background: #e74c3c; color: #fff; }
+  .nodes { list-style: none; }
+  .nodes li { padding: 8px 12px; border-radius: 8px; margin-bottom: 6px; background: #f1f2f6; color: #b2bec3; font-size: 14px; }
+  .nodes li.done { background: #e6f9ee; color: #10ac84; }
+  .nodes li.done::before { content: "✔ "; }
+  .err { margin-top: 12px; color: #e74c3c; font-size: 13px; white-space: pre-wrap; display: none; }
+  .link { text-align: center; margin-top: 16px; font-size: 13px; }
+  .link a { color: #3742fa; text-decoration: none; }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="card">
+    <h1>KB-RAG 知识库 · 文档导入</h1>
+    <div class="sub">支持 PDF / Markdown，自动解析、切片、向量化并入库 Milvus</div>
+
+    <div class="drop" id="drop">
+      <div class="icon">📄</div>
+      <div><b>点击选择 或 拖拽文件到此处</b></div>
+      <p>仅支持 .pdf / .md 文件</p>
+    </div>
+    <input type="file" id="file" accept=".pdf,.md" hidden />
+
+    <div style="text-align:center; margin-top:16px;">
+      <button class="btn" id="uploadBtn" disabled>开始导入</button>
+    </div>
+
+    <div class="task" id="task">
+      <div class="head">
+        <span class="tid" id="taskId"></span>
+        <span class="badge" id="status">pending</span>
+      </div>
+      <ul class="nodes" id="nodes"></ul>
+      <div class="err" id="err"></div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="head" style="display:flex; justify-content:space-between; align-items:center;">
+      <h1 style="font-size:16px; margin:0;">📚 已导入文档</h1>
+      <button class="btn" style="padding:5px 14px; font-size:12px; background:#f1f2f6; color:#57606f;" onclick="loadDocs()">刷新</button>
+    </div>
+    <div id="docs" style="margin-top:12px; font-size:13.5px;">加载中…</div>
+  </div>
+  <div class="link">导入完成后，前往 <a href="/chat.html">对话问答 →</a></div>
+</div>
+
+<script>
+const NODE_NAMES = {
+  node_entry: "入口节点",
+  node_pdf_to_md: "PDF 转 Markdown（MinerU）",
+  node_md_img: "图片处理（VLM + MinIO）",
+  node_document_split: "文档切片",
+  node_item_name_recognition: "主体识别",
+  node_embedding: "向量化",
+  node_import_milvus: "存入 Milvus",
+};
+const $ = (id) => document.getElementById(id);
+let file = null;
+let timer = null;
+
+$("drop").addEventListener("click", () => $("file").click());
+$("drop").addEventListener("dragover", (e) => { e.preventDefault(); $("drop").classList.add("drag"); });
+$("drop").addEventListener("dragleave", () => $("drop").classList.remove("drag"));
+$("drop").addEventListener("drop", (e) => {
+  e.preventDefault();
+  $("drop").classList.remove("drag");
+  if (e.dataTransfer.files.length) pick(e.dataTransfer.files[0]);
+});
+$("file").addEventListener("change", () => { if ($("file").files.length) pick($("file").files[0]); });
+
+function pick(f) {
+  const ext = f.name.split(".").pop().toLowerCase();
+  if (!["pdf", "md"].includes(ext)) { alert("仅支持 .pdf / .md 文件"); return; }
+  file = f;
+  $("uploadBtn").disabled = false;
+  $("drop").querySelector("b").textContent = "已选择：" + f.name + "（" + (f.size / 1024).toFixed(1) + " KB）";
+}
+
+$("uploadBtn").addEventListener("click", async () => {
+  if (!file) return;
+  $("uploadBtn").disabled = true;
+  const fd = new FormData();
+  fd.append("file", file);
+  const resp = await fetch("/api/import", { method: "POST", body: fd });
+  if (!resp.ok) { alert("上传失败：" + (await resp.json()).detail); $("uploadBtn").disabled = false; return; }
+  const data = await resp.json();
+  showTask(data.task_id);
+});
+
+function showTask(taskId) {
+  $("task").style.display = "block";
+  $("taskId").textContent = taskId;
+  $("err").style.display = "none";
+  renderNodes([]);
+  timer = setInterval(() => poll(taskId), 1500);
+  poll(taskId);
+}
+
+function renderNodes(doneList) {
+  $("nodes").innerHTML = Object.entries(NODE_NAMES).map(([key, label]) =>
+    `<li class="${doneList.includes(key) ? "done" : ""}">${label}</li>`
+  ).join("");
+}
+
+async function poll(taskId) {
+  try {
+    const resp = await fetch(`/api/import/status/${taskId}`);
+    if (!resp.ok) return;
+    const t = await resp.json();
+    $("status").textContent = t.status;
+    $("status").className = "badge " + t.status;
+    renderNodes(t.done_list || []);
+    if (t.status === "completed" || t.status === "failed") {
+      clearInterval(timer);
+      if (t.status === "failed") {
+        $("err").style.display = "block";
+        $("err").textContent = "失败原因：" + (t.error || "未知");
+      }
+      $("uploadBtn").disabled = false;
+      loadDocs();
+    }
+  } catch (e) { /* 网络抖动，下一轮重试 */ }
+}
+
+/* ---------- 已导入文档管理 ---------- */
+async function loadDocs() {
+  try {
+    const resp = await fetch("/api/import/docs");
+    const data = await resp.json();
+    if (!data.items || !data.items.length) {
+      $("docs").innerHTML = '<span style="color:#8395a7">暂无文档，先上传一份吧</span>';
+      return;
+    }
+    $("docs").innerHTML =
+      `<div style="color:#8395a7; margin-bottom:8px;">共 ${data.total_docs} 份文档 / ${data.total_chunks} 个切片</div>` +
+      data.items.map((d) => `
+        <div style="display:flex; justify-content:space-between; align-items:center; padding:7px 10px; border-radius:8px; background:#f8f9fe; margin-bottom:5px;">
+          <span>📄 <b>${d.doc_name}</b> <span style="color:#8395a7">· ${d.chunks} 切片</span></span>
+          <button style="border:none; background:none; color:#e17055; cursor:pointer; font-size:12px;"
+                  onclick="delDoc(this, '${encodeURIComponent(d.doc_name)}', '${d.doc_name}')">删除</button>
+        </div>`).join("");
+  } catch (e) { $("docs").innerHTML = '<span style="color:#e74c3c">加载失败</span>'; }
+}
+async function delDoc(btn, encoded, name) {
+  if (!confirm(`确认删除「${name}」及其全部切片？`)) return;
+  btn.disabled = true;
+  const resp = await fetch(`/api/import/docs/${encoded}`, { method: "DELETE" });
+  if (resp.ok) loadDocs();
+  else alert("删除失败：" + (await resp.json()).detail);
+}
+loadDocs();
+</script>
+</body>
+</html>

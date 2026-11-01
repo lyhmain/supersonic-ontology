@@ -1,0 +1,252 @@
+# 部署时把 127.0.0.1 替换为你的 sidecar 主机地址(scripts/ 下有 standalone 启动说明)
+app:
+  description: KB-RAG 知识库 Jev 决策层移植验证：门前三振 → 知识库检索 → 可答门控 → 生成/拒答（HTTP 节点直连 decision-sidecar 127.0.0.1:9101）
+  icon: 🧭
+  icon_background: '#E0F2FE'
+  mode: advanced-chat
+  name: KB-RAG 知识库-Jev门控RAG
+  use_icon_as_answer_icon: false
+kind: app
+version: 0.3.0
+workflow:
+  conversation_variables: []
+  environment_variables: []
+  features:
+    file_upload:
+      enabled: false
+    opening_statement: ''
+    retriever_resource:
+      enabled: true
+    suggested_questions: []
+    suggested_questions_after_answer:
+      enabled: false
+    speech_to_text:
+      enabled: false
+    text_to_speech:
+      enabled: false
+  graph:
+    edges:
+      - id: e1
+        source: start_1
+        target: http_scope
+        sourceHandle: source
+        type: custom
+        zIndex: 0
+      - id: e2
+        source: http_scope
+        target: if_scope
+        sourceHandle: source
+        type: custom
+        zIndex: 0
+      - id: e3
+        source: if_scope
+        target: ans_reject
+        sourceHandle: 'false'
+        type: custom
+        zIndex: 0
+      - id: e4
+        source: if_scope
+        target: kr_1
+        sourceHandle: 'true'
+        type: custom
+        zIndex: 0
+      - id: e5
+        source: kr_1
+        target: code_ctx
+        sourceHandle: source
+        type: custom
+        zIndex: 0
+      - id: e6
+        source: code_ctx
+        target: http_ans
+        sourceHandle: source
+        type: custom
+        zIndex: 0
+      - id: e7
+        source: http_ans
+        target: if_ans
+        sourceHandle: source
+        type: custom
+        zIndex: 0
+      - id: e8
+        source: if_ans
+        target: llm_gen
+        sourceHandle: 'true'
+        type: custom
+        zIndex: 0
+      - id: e9
+        source: llm_gen
+        target: ans_ok
+        sourceHandle: source
+        type: custom
+        zIndex: 0
+      - id: e10
+        source: if_ans
+        target: ans_na
+        sourceHandle: 'false'
+        type: custom
+        zIndex: 0
+    nodes:
+      - id: start_1
+        type: custom-llm-node-start
+        position: {x: 60, y: 300}
+        data:
+          type: start
+          title: 开始
+          variables: []
+      - id: http_scope
+        type: custom-http-request-node
+        position: {x: 340, y: 300}
+        data:
+          type: http-request
+          title: Jev门前三振
+          method: post
+          url: http://127.0.0.1:9101/v1/scope
+          authorization:
+            type: no-auth
+            config: null
+          headers: 'Content-Type:application/json'
+          params: ''
+          body:
+            type: json
+            data: >-
+              {"question": "{{#sys.query#}}", "scope_description": "本系统回答员工向公司内部帮助台咨询的问题：人事考勤、财务报销、总务行政、信息安全管理、劳动安全卫生等已收录规程。概念或原理类问题只要与上述主题相关也算在范围内。"}
+          timeout:
+            max_connect_timeout: 30
+            max_read_timeout: 60
+            max_write_timeout: 60
+      - id: if_scope
+        type: custom-if-else-node
+        position: {x: 640, y: 300}
+        data:
+          type: if-else
+          title: 在范围内？
+          logical_operator: and
+          conditions:
+            - id: c1
+              comparison_operator: contains
+              variable_selector: [http_scope, body]
+              value: '"pass": true'
+      - id: ans_reject
+        type: custom-answer-node
+        position: {x: 940, y: 520}
+        data:
+          type: answer
+          title: 拒答（范围外）
+          answer: >-
+            抱歉，这个问题超出了本知识库的服务范围。本库聚焦人事考勤、财务报销、总务行政、信息安全、劳动安全卫生等规程问题。{{#http_scope.body#}}
+      - id: kr_1
+        type: custom-knowledge-retrieval-node
+        position: {x: 940, y: 180}
+        data:
+          type: knowledge-retrieval
+          title: 知识库检索
+          query_variable_selector: [sys, query]
+          dataset_ids: []
+          retrieval_mode: multiple
+          multiple_retrieval_config:
+            top_k: 6
+            score_threshold: null
+            reranking_enable: false
+      - id: code_ctx
+        type: custom-code-node
+        position: {x: 1240, y: 180}
+        data:
+          type: code
+          title: 组装候选片段
+          code_language: python3
+          code: |
+            def main(result: list) -> dict:
+                import json
+                items = result or []
+                contexts = [str(i.get("content", "")) for i in items]
+                return {
+                    "contexts_json": json.dumps(contexts, ensure_ascii=False),
+                    "contexts_text": "\n\n".join(f"[{i+1}] {c}" for i, c in enumerate(contexts)) or "（无检索结果）",
+                }
+          output_schema:
+            type: object
+            properties:
+              contexts_json:
+                type: string
+              contexts_text:
+                type: string
+          variables:
+            - variable: result
+              value_selector: [kr_1, result]
+      - id: http_ans
+        type: custom-http-request-node
+        position: {x: 1540, y: 180}
+        data:
+          type: http-request
+          title: Jev可答门控
+          method: post
+          url: http://127.0.0.1:9101/v1/answerability
+          authorization:
+            type: no-auth
+            config: null
+          headers: 'Content-Type:application/json'
+          params: ''
+          body:
+            type: json
+            data: >-
+              {"question": "{{#sys.query#}}", "contexts": {{#code_ctx.contexts_json#}}}
+          timeout:
+            max_connect_timeout: 30
+            max_read_timeout: 90
+            max_write_timeout: 60
+      - id: if_ans
+        type: custom-if-else-node
+        position: {x: 1840, y: 180}
+        data:
+          type: if-else
+          title: 可回答？
+          logical_operator: and
+          conditions:
+            - id: c2
+              comparison_operator: contains
+              variable_selector: [http_ans, body]
+              value: '"answerable": true'
+      - id: llm_gen
+        type: custom-llm-node
+        position: {x: 2140, y: 80}
+        data:
+          type: llm
+          title: 生成答案
+          model:
+            provider: langgenius/openai_api_compatible/openai_api_compatible
+            name: GLM-5.3-Flash
+            mode: chat
+            completion_params:
+              temperature: 0.2
+          prompt_template:
+            - role: system
+              text: >-
+                你是企业知识库助手，只能依据【参考资料】回答问题。规则：引用资料时在句末标注 [n]；资料不足时明确说"知识库中没有找到相关信息"，不要编造；简洁中文。
+            - role: user
+              text: >-
+                【参考资料】
+                {{#code_ctx.contexts_text#}}
+                
+                【问题】{{#sys.query#}}
+          context:
+            enabled: true
+            variable_selector: [code_ctx, contexts_text]
+          vision:
+            enabled: false
+      - id: ans_ok
+        type: custom-answer-node
+        position: {x: 2440, y: 80}
+        data:
+          type: answer
+          title: 输出答案
+          answer: '{{#llm_gen.text#}}'
+      - id: ans_na
+        type: custom-answer-node
+        position: {x: 2140, y: 420}
+        data:
+          type: answer
+          title: 未找到
+          answer: >-
+            知识库中没有找到与该问题相关的信息。{{#http_ans.body#}}
+  hash: ''

@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<title>supersonic-ontology · 控制台</title>
+<style>
+:root{--bg:#f0f2f5;--panel:#ffffff;--panel2:#f5f7fa;--line:#e5e8ef;--tx:#1f2329;--tx2:#6b7280;
+      --acc:#1c6bed;--acc2:#0e5ad8;--ok:#52c41a;--bad:#ff4d4f;--warn:#faad14}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--tx);font:14px/1.6 -apple-system,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif}
+.topbar{background:#fff;border-bottom:1px solid var(--line);padding:12px 28px;display:flex;align-items:center;gap:12px}
+.logo{width:34px;height:34px;border-radius:8px;background:linear-gradient(135deg,#1c6bed,#38b1ff);
+      color:#fff;font-weight:700;display:flex;align-items:center;justify-content:center;font-size:18px}
+.wrap{max-width:1280px;margin:0 auto;padding:4px 28px 32px}
+.card>b:first-child{display:block;margin-bottom:10px;font-size:14px}
+.stepno{display:inline-block;width:20px;height:20px;line-height:20px;text-align:center;border-radius:50%;
+        background:var(--acc);color:#fff;font-size:12px;font-weight:600;margin-right:8px}
+.row{display:flex;gap:12px;align-items:flex-start}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:16px 18px;
+      box-shadow:0 1px 2px rgba(15,23,42,.04);margin-bottom:16px}
+.grow{flex:1}
+.pill{display:inline-block;padding:0 8px;border-radius:4px;font-size:12px;line-height:20px;
+      background:var(--panel2);border:1px solid var(--line);color:var(--tx2);margin:2px}
+.pill.ok{color:#389e0d;background:#f6ffed;border-color:#b7eb8f}
+.pill.bad{color:#cf1322;background:#fff1f0;border-color:#ffa39e}
+.plist{width:250px}
+.pitem{padding:10px 12px;border:1px solid var(--line);border-radius:8px;margin-bottom:8px;cursor:pointer;background:#fff}
+.pitem:hover{border-color:var(--acc)}
+.pitem.on{border-color:var(--acc);background:#f0f6ff}
+.pitem .d{color:var(--tx2);font-size:12px}
+button{background:#fff;border:1px solid #d9d9d9;color:var(--tx);border-radius:6px;padding:6px 16px;
+       cursor:pointer;font-size:13px;transition:all .15s}
+button:hover{border-color:var(--acc);color:var(--acc)}
+button.pri{background:var(--acc);border-color:var(--acc);color:#fff}
+button.pri:hover{background:var(--acc2);border-color:var(--acc2);color:#fff}
+button.danger{color:var(--bad)}
+button.danger:hover{border-color:var(--bad);color:var(--bad)}
+button+button{margin-left:8px}
+input,textarea,select{background:#fff;border:1px solid #d9d9d9;color:var(--tx);border-radius:6px;
+       padding:7px 10px;font-size:13px;width:100%}
+input:focus,textarea:focus,select:focus{outline:none;border-color:var(--acc);box-shadow:0 0 0 2px rgba(28,107,237,.12)}
+textarea{font-family:Consolas,monospace;font-size:12.5px;white-space:pre;min-height:430px}
+label{display:block;color:var(--tx2);font-size:12px;margin:8px 0 3px}
+.msg{margin-top:8px;font-size:12.5px;min-height:18px;white-space:pre-wrap}
+.msg.ok{color:#389e0d} .msg.bad{color:#cf1322} .msg.warn{color:#d48806}
+table{border-collapse:collapse;width:100%;font-size:12.5px}
+td,th{border:1px solid var(--line);padding:4px 8px;text-align:left}
+th{color:var(--tx2);background:var(--panel2)}
+.tabs{display:flex;gap:28px;border-bottom:1px solid var(--line);margin:16px 0 18px}
+.tab{padding:10px 2px;border:none;background:none;cursor:pointer;color:var(--tx2);font-size:15px;
+     border-bottom:2px solid transparent}
+.tab.on{color:var(--acc);border-bottom:2px solid var(--acc);font-weight:500}
+.tab:hover{color:var(--acc)}
+.jcards{display:flex;gap:14px;flex-wrap:wrap}
+.jcard{width:320px}
+.jcard.active{border-color:var(--acc);box-shadow:0 0 0 2px rgba(28,107,237,.08)}
+.jcard .tag{font-size:12px;color:var(--tx2)}
+pre{background:#f6f8fa;border:1px solid var(--line);border-radius:8px;padding:10px;font-size:12px;
+    white-space:pre-wrap;max-height:300px;overflow:auto;margin-top:8px}
+</style>
+</head>
+<body>
+<div class="topbar"><div class="logo">S</div>
+  <div><div style="font-weight:600;font-size:16px">supersonic-ontology</div>
+  <div style="font-size:12px;color:var(--tx2)">本体驱动问数与分析 · 控制台</div></div>
+  <span id="ver" style="margin-left:auto;font-size:12px;color:var(--tx2)"></span>
+  <button onclick="window.open('/dash','_blank')">决策看板 ↗</button>
+  <button onclick="window.open('http://'+location.hostname+':9080/agent','_blank')">助理管理 ↗</button>
+</div>
+<div class="wrap">
+<div class="tabs">
+  <div class="tab on" data-t="onto">本体配置</div>
+  <div class="tab" data-t="jev">Jev 后端</div>
+  <div class="tab" data-t="wiz">接入向导</div>
+  <div class="tab" data-t="bad">Badcase</div>
+</div>
+
+<!-- ============ 本体配置 ============ -->
+<div class="panel on" id="p-onto">
+  <div class="row">
+    <div class="card plist">
+      <b>Profiles</b>
+      <div id="plist" style="margin-top:10px"></div>
+      <button onclick="newProfile()">+ 新建</button>
+    </div>
+    <div class="card grow">
+      <div class="row">
+        <div class="grow">
+          <b id="pname">—</b>
+          <span id="pmeta" class="tag"></span>
+        </div>
+        <button class="pri" onclick="saveProfile()">保存</button>
+        <button class="danger" onclick="delProfile()">删除</button>
+      </div>
+      <textarea id="peditor" spellcheck="false"></textarea>
+      <div class="msg" id="pmsg"></div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:16px">
+    <b>试问(验证配置)</b>
+    <div class="row" style="margin-top:10px">
+      <select id="tprofile" style="width:220px"></select>
+      <input id="tquestion" class="grow" placeholder="如: 昨天营业额是多少 / 各门店近30天营业额 / 营业额为什么下滑">
+      <button class="pri" onclick="tryAsk()">试问</button>
+    </div>
+    <div class="msg" id="tmsg"></div>
+    <pre id="tout" style="display:none"></pre>
+  </div>
+</div>
+
+<!-- ============ Jev 后端 ============ -->
+<div class="panel" id="p-jev">
+  <div class="card" style="margin-bottom:14px">
+    当前洞察生成使用后端:<b id="jactive" style="color:var(--ok)">—</b>
+    <span class="tag">(insight / 归因洞察 / 试问洞察 均走此配置;OpenAI 兼容协议)</span>
+  </div>
+  <div class="jcards" id="jcards"></div>
+  <div class="msg" id="jmsg"></div>
+  <div style="margin-top:12px">
+    <button class="pri" onclick="saveJev()">保存全部</button>
+    <span class="tag" style="margin-left:10px">密钥留空 = 保持原值;保存后点"测试"验证连通,"激活"切换</span>
+  </div>
+</div>
+
+<!-- ============ 接入向导 ============ -->
+<div class="panel" id="p-wiz">
+  <div class="card" style="margin-bottom:14px;border-left:3px solid var(--acc)">
+    <b><span class="stepno">★</span>标准配置(推荐 —— 普通表结构即可接入,无需理解本体)</b>
+    <div class="row" style="margin-top:10px">
+      <textarea id="wspec" class="grow" style="min-height:150px" spellcheck="false"></textarea>
+      <div>
+        <button onclick="loadSpecTpl()">填入模板</button><br><br>
+        <button class="pri" onclick="compileSpec()">生成标准配置草稿</button><br><br>
+        <button class="pri" onclick="saveSpec()">编译并保存上线</button>
+      </div>
+    </div>
+    <div class="msg" id="wmsg0"></div>
+    <div class="tag" style="margin-top:6px">字段:主表(表/日期列/过滤可选) · 维表(表/外键/维度/点查词) · 指标(名称/类型/列/同义词;类型: 金额·数量=对列求和(聚合表/金额), 次数·人数=按列去重计数(明细表), 比值=两指标相除) · 验收(q/期望值)。保存自动跑试问集,全绿即上线。</div>
+  </div>
+
+  <div class="card" style="margin-bottom:14px">
+    <b>可选 · 从行业模板开始</b>
+    <div class="row" style="margin-top:10px">
+      <select id="wtpl" style="width:320px"></select>
+      <button onclick="loadTpl()">载入模板到编辑器</button>
+      <span class="tag">载入后切到"本体配置"改成你的表/口径,再回来跑验收</span>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:14px">
+    <b><span class="stepno">1</span>扫描数据表 → 自动生成本体草稿</b>
+    <div class="row" style="margin-top:10px">
+      <select id="wtable" style="width:320px"></select>
+      <input id="wdims" style="width:280px" placeholder="维表(逗号分隔,可选) 如 demo_tea_store">
+      <button onclick="genDraft()">自动生成草稿</button>
+      <span class="tag">日期列→时间 锚 · 数值列→指标(注释做词表) · 字符串列→维度</span>
+    </div>
+    <div class="msg" id="wmsg1"></div>
+  </div>
+
+  <div class="card" style="margin-bottom:14px">
+    <b><span class="stepno">2</span>试问集(保存前先验收,绿了才上线)</b>
+    <div class="row" style="margin-top:10px">
+      <textarea id="wacc" class="grow" style="min-height:110px" spellcheck="false"></textarea>
+      <div>
+        <button class="pri" onclick="runAcc()">运行验收</button><br><br>
+        <button class="pri" onclick="saveWiz()">保存上线</button>
+      </div>
+    </div>
+    <div class="msg" id="wmsg2"></div>
+    <pre id="wres" style="display:none"></pre>
+  </div>
+
+  <div class="card">
+    <b><span class="stepno">3</span>验收报告(已上线 profile)</b>
+    <div class="row" style="margin-top:10px">
+      <select id="wrep" style="width:240px"></select>
+      <button onclick="runReport()">生成报告</button>
+    </div>
+    <div class="msg" id="wmsg3"></div>
+  </div>
+</div>
+
+
+<div class="panel" id="p-bad">
+  <div class="card">
+    <div class="row">
+      <b>Badcase 收集</b>
+      <select id="bstat" style="width:150px">
+        <option value="">全部</option><option value="open">待处理</option>
+        <option value="to_acceptance">已转验收</option>
+        <option value="fixed">已修复</option><option value="ignored">忽略</option>
+      </select>
+      <button onclick="loadBad()">刷新</button>
+      <span id="bmeta" class="tag"></span>
+    </div>
+    <div class="msg" id="bmsg"></div>
+    <table id="btab"><thead><tr>
+      <th>时间</th><th>问题</th><th>通道</th><th>原因</th><th>状态</th><th>备注</th><th>操作</th>
+    </tr></thead><tbody></tbody></table>
+  </div>
+  <div class="card">
+    <b>手工上报(答错了但系统没自动发现的)</b>
+    <div class="row" style="margin-top:8px">
+      <input id="bq" class="grow" placeholder="问题原文">
+      <input id="bnote" class="grow" placeholder="错在哪,如:没按省份分组">
+      <button class="pri" onclick="addBad()">上报</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const $=q=>document.querySelector(q), $$=q=>document.querySelectorAll(q);
+let CUR=null, JEV=null;
+
+/* ---------- tabs ---------- */
+$$('.tab').forEach(t=>t.onclick=()=>{
+  $$('.tab').forEach(x=>x.classList.remove('on')); t.classList.add('on');
+  $$('.panel').forEach(x=>x.classList.remove('on')); $('#p-'+t.dataset.t).classList.add('on');
+  if(t.dataset.t==='bad') loadBad();
+});
+
+/* ---------- profiles ---------- */
+async function loadProfiles(keep){
+  const d = await (await fetch('/api/ui/profiles')).json();
+  const box = $('#plist'); box.innerHTML='';
+  (d.profiles||[]).forEach(p=>{
+    const el=document.createElement('div');
+    el.className='pitem'+(p.name===keep?' on':'');
+    el.innerHTML=`<b>${p.name}</b>${p.name===d.default?' <span class="pill ok">默认</span>':''}
+      <div class="d">${p.ok?p.domain+' · 指标'+p.metrics+' · 维度'+p.dimensions:'⛔ '+p.err}</div>`;
+    el.onclick=()=>openProfile(p.name);
+    box.appendChild(el);
+  });
+  const sel=$('#tprofile'); sel.innerHTML='';
+  (d.profiles||[]).filter(p=>p.ok).forEach(p=>{
+    const o=document.createElement('option'); o.value=p.name;
+    o.textContent=p.name+(p.name===d.default?'(默认)':''); sel.appendChild(o);
+  });
+}
+
+async function openProfile(name){
+  CUR=name;
+  const d = await (await fetch('/api/ui/profile/'+name)).json();
+  $('#pname').textContent=name;
+  $('#pmeta').textContent=d.ok?(' · '+d.domain+' · 指标:'+Object.keys(d.metrics||{}).join('/')+' · 维度:'+Object.keys(d.dimensions||{}).join('/')):'(编译失败)';
+  $('#peditor').value=JSON.stringify(d.raw??d, null, 2);
+  $('#pmsg').textContent=''; $('#pmsg').className='msg';
+  loadProfiles(name);
+}
+
+function newProfile(){
+  CUR=null; $('#pname').textContent='新建 profile';
+  $('#pmeta').textContent='';
+  $('#peditor').value=JSON.stringify({profile:"my_company", domain:"…", default_metric:"",
+    fact:{table:"dwd_xxx t", date_col:"dt", paid_filter:"t.is_deleted = 0"},
+    ads:{table:"ads_xxx_day", metric_exprs:{}},
+    metrics:{revenue:{name:"营收", words:["营收","收入"], col:"amount"}},
+    dimensions:{}, value_tokens:[], holidays:{}, intent:{}}, null, 2);
+}
+
+async function saveProfile(){
+  let cfg;
+  try{ cfg=JSON.parse($('#peditor').value); }
+  catch(e){ return fail('#pmsg','JSON 解析失败: '+e.message); }
+  const name=cfg.profile; if(!name) return fail('#pmsg','缺少 profile 字段');
+  const r=await fetch('/api/ui/profile/'+name, {method:'PUT',
+    headers:{'Content-Type':'application/json'}, body:JSON.stringify(cfg)});
+  const d=await r.json();
+  if(d.ok){ msg('#pmsg','✓ 已保存并编译通过(指标 '+d.metrics+' / 维度 '+d.dimensions+')','ok');
+    CUR=name; loadProfiles(name); }
+  else fail('#pmsg','✗ 校验失败: '+d.error);
+}
+
+async function delProfile(){
+  if(!CUR) return fail('#pmsg','未选择 profile');
+  if(!confirm('删除 '+CUR+' ?')) return;
+  const d=await (await fetch('/api/ui/profile/'+CUR, {method:'DELETE'})).json();
+  if(d.ok){ msg('#pmsg','✓ 已删除','ok'); CUR=null; $('#pname').textContent='—';
+    $('#peditor').value=''; loadProfiles(); }
+  else fail('#pmsg','✗ '+d.error);
+}
+
+async function tryAsk(){
+  const q=$('#tquestion').value.trim();
+  if(!q) return fail('#tmsg','输入问题');
+  const body={question:q}; const p=$('#tprofile').value;
+  if(p && !p.endsWith('(默认)')) body.profile=p;
+  msg('#tmsg','…');
+  try{
+    const r=await (await fetch('/api/nl',{method:'POST',
+      headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)})).json();
+    $('#tout').style.display='block';
+    $('#tout').textContent=JSON.stringify(r, null, 1);
+    const p2=r.parsed||{};
+    msg('#tmsg',`✓ ${r.profile} · 动作=${p2.action} 指标=${p2.metric} 维度=${p2.dim??'-'} `+
+      `${p2.start}~${p2.end}`+(r.insight?` · 洞察[${(r.insight.jev_backend||'-')}]: ${(r.insight.insight||'').slice(0,80)}…`:''),'ok');
+  }catch(e){ fail('#tmsg','✗ '+e); }
+}
+
+/* ---------- jev ---------- */
+async function loadJev(){
+  JEV = await (await fetch('/api/ui/jev')).json();
+  $('#jactive').textContent=(JEV.providers[JEV.active]||{}).label+' ('+JEV.active+')';
+  const box=$('#jcards'); box.innerHTML='';
+  Object.entries(JEV.providers).forEach(([pid,p])=>{
+    const el=document.createElement('div');
+    el.className='card jcard'+(pid===JEV.active?' active':'');
+    el.innerHTML=`
+      <b>${p.label}</b> <span class="tag">${pid}</span>${pid===JEV.active?' <span class="pill ok">激活中</span>':''}
+      <label>Base URL</label><input id="ju_${pid}_url" value="${p.base_url||''}" placeholder="https://…/v1">
+      <label>Model</label><input id="ju_${pid}_model" value="${p.model||''}">
+      <label>API Key ${p.api_key_masked?('已配 '+p.api_key_masked):'(未配置)'}</label>
+      <input id="ju_${pid}_key" type="password" placeholder="留空保持原值">
+      <div class="row" style="margin-top:10px">
+        <button onclick="testJev('${pid}')">测试</button>
+        <button class="pri" onclick="activateJev('${pid}')">激活</button>
+      </div>
+      <div class="msg" id="jm_${pid}"></div>`;
+    box.appendChild(el);
+  });
+}
+
+async function saveJev(){
+  const body={providers:{}};
+  Object.keys(JEV.providers).forEach(pid=>{
+    body.providers[pid]={
+      base_url:$(`#ju_${pid}_url`).value.trim(),
+      model:$(`#ju_${pid}_model`).value.trim(),
+      api_key:$(`#ju_${pid}_key`).value.trim()};
+  });
+  const d=await (await fetch('/api/ui/jev',{method:'PUT',
+    headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)})).json();
+  if(d.ok){ msg('#jmsg','✓ 已保存(空密钥保持原值)','ok'); loadJev(); }
+  else fail('#jmsg','✗ '+d.error);
+}
+
+async function testJev(pid){
+  msg('#jm_'+pid,'测试中…');
+  await saveJevSilent();
+  const d=await (await fetch('/api/ui/jev/test',{method:'POST',
+    headers:{'Content-Type':'application/json'}, body:JSON.stringify({pid})})).json();
+  if(d.ok) msg('#jm_'+pid,`✓ 连通 [${d.model}]: ${d.reply}`,'ok');
+  else fail('#jm_'+pid,'✗ '+d.error);
+}
+
+async function saveJevSilent(){
+  const body={providers:{}};
+  Object.keys(JEV.providers).forEach(pid=>{
+    body.providers[pid]={base_url:$(`#ju_${pid}_url`).value.trim(),
+      model:$(`#ju_${pid}_model`).value.trim(),
+      api_key:$(`#ju_${pid}_key`).value.trim()};
+  });
+  await fetch('/api/ui/jev',{method:'PUT',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify(body)});
+}
+
+async function activateJev(pid){
+  await saveJevSilent();
+  const d=await (await fetch('/api/ui/jev/activate',{method:'POST',
+    headers:{'Content-Type':'application/json'}, body:JSON.stringify({pid})})).json();
+  if(d.ok){ msg('#jmsg',`✓ 已激活 ${d.label} — 洞察生成即走此后端`,'ok'); loadJev(); }
+  else fail('#jmsg','✗ '+d.error);
+}
+
+/* ---------- utils ---------- */
+function msg(sel,t,cls){ const e=$(sel); e.textContent=t; e.className='msg '+(cls||''); }
+function fail(sel,t){ const e=$(sel); e.textContent=t; e.className='msg bad'; }
+
+/* ---------- 接入向导 ---------- */
+async function loadSpecTpl(){
+  const d = await (await fetch('/api/ui/spec/template')).json();
+  $('#wspec').value = JSON.stringify(d, null, 1);
+  msg('#wmsg0','✓ 模板已填入,改成你的表/指标/验收后点右侧按钮','ok');
+}
+async function compileSpec(){
+  let spec; try{ spec = JSON.parse($('#wspec').value); }catch(e){ return fail('#wmsg0','规范配置 JSON 无效: '+e.message); }
+  msg('#wmsg0','编译中…');
+  try{
+    const d = await (await fetch('/api/ui/spec/compile',{method:'POST',
+      headers:{'Content-Type':'application/json'}, body:JSON.stringify(spec)})).json();
+    if(d.ok === false || d.detail) return fail('#wmsg0','✗ '+d.detail);
+    CUR = null; $('#pname').textContent = d.profile.profile + '(规范配置草稿)';
+    $('#pmeta').textContent = d.profile.domain;
+    $('#peditor').value = JSON.stringify(d.profile, null, 2);
+    $('#wacc').value = JSON.stringify(d.profile.acceptance||[], null, 1);
+    msg('#wmsg0','✓ 已生成草稿(高级编辑器已同步,可微调后走②验收)','ok');
+  }catch(e){ fail('#wmsg0','✗ '+e); }
+}
+async function saveSpec(){
+  let spec; try{ spec = JSON.parse($('#wspec').value); }catch(e){ return fail('#wmsg0','规范配置 JSON 无效: '+e.message); }
+  msg('#wmsg0','编译+验收中…');
+  try{
+    const d = await (await fetch('/api/ui/spec/save',{method:'POST',
+      headers:{'Content-Type':'application/json'}, body:JSON.stringify({spec})})).json();
+    const a = d.acceptance||{};
+    if(a.passed===a.cases && a.cases>0){
+      msg('#wmsg0',`✓ 已保存上线 ${d.profile} · 验收 ${a.passed}/${a.cases} 全绿`,'ok'); loadWiz();
+    } else {
+      $('#wres').style.display='block'; $('#wres').textContent = JSON.stringify(a.results||[],null,1);
+      fail('#wmsg0',`✗ 已保存但验收 ${a.passed}/${a.cases} 未全绿——请校对口径/词表(或删除该 profile 重来)`);
+    }
+  }catch(e){ fail('#wmsg0','✗ '+e); }
+}
+async function loadWiz(){
+  try{
+    const t = await (await fetch('/api/ui/doris/tables')).json();
+    const sel = $('#wtable'); sel.innerHTML = '<option value="">— 选表 —</option>';
+    (t.tables||[]).forEach(x=>{ const o=document.createElement('option'); o.value=x.name;
+      o.textContent=x.name+(x.comment?`(${x.comment})`:''); sel.appendChild(o); });
+  }catch(e){}
+  try{
+    const t = await (await fetch('/api/ui/templates')).json();
+    const sel = $('#wtpl'); sel.innerHTML = '';
+    Object.entries(t.templates||{}).forEach(([k,v])=>{ const o=document.createElement('option');
+      o.value=k; o.textContent=k+' — '+v; sel.appendChild(o); });
+  }catch(e){}
+  const rep = $('#wrep'); rep.innerHTML = '<option value="">— 选 profile —</option>';
+  try{
+    const t = await (await fetch('/api/ui/profiles')).json();
+    (t.profiles||[]).filter(p=>p.ok).forEach(p=>{ const o=document.createElement('option');
+      o.value=p.name; o.textContent=p.name; rep.appendChild(o); });
+  }catch(e){}
+}
+async function loadTpl(){
+  const k = $('#wtpl').value; if(!k) return;
+  const d = await (await fetch('/api/ui/template/'+k)).json();
+  CUR = null; $('#pname').textContent = d.profile + '(模板草稿)'; $('#pmeta').textContent = d.domain;
+  $('#peditor').value = JSON.stringify(d, null, 2);
+  $('#wacc').value = JSON.stringify(d.acceptance||[], null, 1);
+  msg('#wmsg1','✓ 模板已载入,切到"本体配置"修改后保存,再回来跑验收','ok');
+  document.querySelector('[data-t=onto]').click();
+}
+async function genDraft(){
+  const t = $('#wtable').value; if(!t) return fail('#wmsg1','先选表');
+  msg('#wmsg1','扫描中…');
+  const dims = ($('#wdims').value||'').split(/[,，]/).map(x=>x.trim()).filter(Boolean);
+  try{
+    const d = await (await fetch('/api/ui/profile/draft',{method:'POST',
+      headers:{'Content-Type':'application/json'}, body:JSON.stringify({table:t, dim_tables:dims})})).json();
+    CUR = null; $('#pname').textContent = d.profile + '(草稿)'; $('#pmeta').textContent = d.domain;
+    $('#peditor').value = JSON.stringify(d, null, 2);
+    $('#wacc').value = JSON.stringify(d.acceptance||[], null, 1);
+    msg('#wmsg1',`✓ 草稿生成: 指标${Object.keys(d.metrics).length} · 维度${Object.keys(d.dimensions).length} · 日期列=${d.fact.date_col}`,'ok');
+  }catch(e){ fail('#wmsg1','✗ '+e); }
+}
+async function runAcc(){
+  let cfg; try{ cfg = JSON.parse($('#peditor').value); }catch(e){ return fail('#wmsg2','编辑器 JSON 无效'); }
+  try{ cfg.acceptance = JSON.parse($('#wacc').value||'[]'); }catch(e){ return fail('#wmsg2','试问集 JSON 无效'); }
+  msg('#wmsg2','验收中…');
+  try{
+    const d = await (await fetch('/api/ui/acceptance',{method:'POST',
+      headers:{'Content-Type':'application/json'}, body:JSON.stringify(cfg)})).json();
+    const rs = d.results||[]; const np = rs.filter(x=>x.pass).length;
+    $('#wres').style.display='block';
+    $('#wres').textContent = JSON.stringify(rs, null, 1);
+    if(np===rs.length && rs.length) msg('#wmsg2',`✓ 验收通过 ${np}/${rs.length} — 可保存上线`,'ok');
+    else fail('#wmsg2',`✗ 验收 ${np}/${rs.length} 通过,请校对草稿(常见:口径过滤/词表/日期数据范围)`);
+  }catch(e){ fail('#wmsg2','✗ '+e); }
+}
+async function saveWiz(){
+  await saveProfile();
+}
+async function runReport(){
+  const n = $('#wrep').value; if(!n) return;
+  msg('#wmsg3','生成中…');
+  try{
+    const d = await (await fetch('/api/ui/report/'+n)).json();
+    msg('#wmsg3',`📋 ${d.profile}: ${d.passed}/${d.cases} 通过 (${d.pass_rate??'-'}%)`,'ok');
+    $('#wres').style.display='block'; $('#wres').textContent = JSON.stringify(d.results,null,1);
+  }catch(e){ fail('#wmsg3','✗ '+e); }
+}
+loadWiz();
+fetch('/api/ui/health').then(r=>r.json()).then(d=>{
+  $('#ver').textContent=`v${d.version} · profiles:${(d.profiles||[]).join(', ')}`;
+});
+loadProfiles(); loadJev();
+/* ---------- badcase ---------- */
+const BREASON={empty:'查空(无数据/零值)',metric_miss:'指标未命中',error:'异常',manual:'人工上报'};
+const BSTATUS={open:'待处理',fixed:'已修复',ignored:'忽略',to_acceptance:'已转验收'};
+async function loadBad(){
+  const s=$('#bstat').value;
+  const d=await (await fetch('/api/badcase?limit=200'+(s?'&status='+s:''))).json();
+  const tb=$('#btab tbody'); tb.innerHTML='';
+  (d.items||[]).forEach(x=>{
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td>${x.ts}</td><td>${x.question}</td><td>${x.channel}</td>
+      <td>${BREASON[x.reason]||x.reason}</td><td>${BSTATUS[x.status]||x.status}</td>
+      <td>${x.note||''}</td>
+      <td><button onclick="badAcc('${x.id}')">转验收</button>
+          <button onclick="badFix('${x.id}')">已修复</button>
+          <button onclick="badIg('${x.id}')">忽略</button></td>`;
+    tb.appendChild(tr);
+  });
+  $('#bmeta').textContent='共'+(d.items||[]).length+'条';
+}
+async function badPost(body){
+  const d=await (await fetch('/api/badcase/annotate',{method:'POST',
+    headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})).json();
+  if(!d.ok) $('#bmsg').textContent=(d.detail&&d.detail.message)||'操作失败';
+  loadBad();
+}
+function badAcc(id){badPost({id, status:'to_acceptance'})}
+function badFix(id){badPost({id, status:'fixed'})}
+function badIg(id){badPost({id, status:'ignored'})}
+async function addBad(){
+  const q=$('#bq').value.trim();
+  if(!q){$('#bmsg').textContent='问题不能为空';return;}
+  await fetch('/api/badcase',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({question:q,note:$('#bnote').value})});
+  $('#bq').value='';$('#bnote').value='';$('#bmsg').textContent='已上报';
+  loadBad();
+}
+
+</script>
+</div>
+</body>
+</html>

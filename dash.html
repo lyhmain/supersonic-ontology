@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<title>决策看板 · supersonic-ontology</title>
+<style>
+:root{--bg:#f0f2f5;--panel:#ffffff;--panel2:#f5f7fa;--line:#e5e8ef;--tx:#1f2329;--tx2:#6b7280;
+      --acc:#1c6bed;--acc2:#0e5ad8;--ok:#52c41a;--bad:#ff4d4f;--warn:#faad14}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--tx);font:14px/1.6 -apple-system,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif}
+.topbar{background:#fff;border-bottom:1px solid var(--line);padding:12px 28px;display:flex;align-items:center;gap:12px}
+.logo{width:34px;height:34px;border-radius:8px;background:linear-gradient(135deg,#1c6bed,#38b1ff);
+      color:#fff;font-weight:700;display:flex;align-items:center;justify-content:center;font-size:18px}
+.wrap{max-width:1280px;margin:0 auto;padding:4px 28px 32px}
+.row{display:flex;gap:12px;align-items:flex-end}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:16px 18px;
+      box-shadow:0 1px 2px rgba(15,23,42,.04);margin-bottom:16px}
+.card>b:first-child{display:block;margin-bottom:10px;font-size:14px}
+.grow{flex:1}
+button{background:#fff;border:1px solid #d9d9d9;color:var(--tx);border-radius:6px;padding:6px 16px;
+       cursor:pointer;font-size:13px;transition:all .15s}
+button:hover{border-color:var(--acc);color:var(--acc)}
+button.pri{background:var(--acc);border-color:var(--acc);color:#fff}
+button.pri:hover{background:var(--acc2);border-color:var(--acc2);color:#fff}
+input,select{background:#fff;border:1px solid #d9d9d9;color:var(--tx);border-radius:6px;
+       padding:7px 10px;font-size:13px;width:100%}
+input:focus,select:focus{outline:none;border-color:var(--acc);box-shadow:0 0 0 2px rgba(28,107,237,.12)}
+label{display:block;color:var(--tx2);font-size:12px;margin:8px 0 3px}
+.msg{margin-top:8px;font-size:12.5px;min-height:18px;white-space:pre-wrap;color:var(--tx2)}
+.tag{display:inline-block;padding:0 8px;border-radius:4px;font-size:12px;line-height:20px;
+     background:var(--panel2);border:1px solid var(--line);color:var(--tx2)}
+@media (max-width:900px){.row{flex-wrap:wrap}.row>div{width:46%}}
+</style>
+</head>
+<body>
+<div class="topbar"><div class="logo">S</div>
+  <div><div style="font-weight:600;font-size:16px">决策看板</div>
+    <div style="color:var(--tx2);font-size:12px">supersonic-ontology</div></div>
+  <div class="grow"></div>
+  <button onclick="renderDash()">刷新</button>
+</div>
+<div class="wrap">
+  <div class="card">
+    <div class="row" style="align-items:flex-end">
+      <div><label>指标</label><select id="dmetric" style="width:160px"></select></div>
+      <div><label>分组维度</label><select id="ddim" style="width:160px"></select></div>
+      <div><label>时间</label>
+        <select id="drange" style="width:130px">
+          <option value="yesterday">昨日</option>
+          <option value="7d" selected>近7天</option>
+          <option value="30d">近30天</option>
+          <option value="month">本月</option>
+          <option value="lastmonth">上月</option>
+        </select></div>
+      <div><label>图形</label>
+        <select id="dchart" style="width:110px">
+          <option value="auto">自动</option>
+          <option value="bar">柱状图</option>
+          <option value="pie">饼图</option>
+        </select></div>
+      <div><label>取值过滤</label><input id="dfilter" placeholder="留空=全部,如:县市36服务区" style="width:190px"></div>
+      <div style="padding-bottom:1px"><button class="pri" onclick="renderDash()">应用</button></div>
+      <div class="grow" style="align-self:center;text-align:right">
+        <span id="dmeta" class="tag"></span>
+      </div>
+    </div>
+    <div class="msg" id="dmsg"></div>
+  </div>
+  <div class="card">
+    <b id="dmainTitle">指标构成</b>
+    <div id="dmain" style="height:380px"></div>
+  </div>
+  <div class="card">
+    <b>每日趋势</b>
+    <div id="dtrend" style="height:300px"></div>
+  </div>
+</div>
+<script src="/echarts.min.js"></script>
+<script>
+const $=q=>document.querySelector(q);
+let DASH_META=null, MAIN_CHART=null, TREND_CHART=null;
+const PALETTE=['#1c6bed','#38b1ff','#52c41a','#faad14','#ff4d4f','#722ed1','#13c2c2','#eb2f96','#fa8c16','#a0d911'];
+const dstr=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+function drangeDates(v){
+  const now=new Date(); const yest=new Date(now); yest.setDate(yest.getDate()-1);
+  if(v==='yesterday'){
+    // 锚定数仓最新完整日(昨日=最新分区前一天),避免自然日超过数据范围
+    const base=LATEST?new Date(LATEST+'T00:00:00'):yest;
+    base.setDate(base.getDate()-1);
+    return [dstr(base), dstr(base)];
+  }
+  if(v==='30d'){const s=new Date(now); s.setDate(s.getDate()-29); return [dstr(s), dstr(now)];}
+  if(v==='month') return [dstr(new Date(now.getFullYear(),now.getMonth(),1)), dstr(now)];
+  if(v==='lastmonth') return [dstr(new Date(now.getFullYear(),now.getMonth()-1,1)), dstr(new Date(now.getFullYear(),now.getMonth(),0))];
+  const s=new Date(now); s.setDate(s.getDate()-6); return [dstr(s), dstr(now)];
+}
+  const qs=new URLSearchParams(location.search);
+  let LATEST='';   // 数仓最新分区日期(口径锚点)
+  async function initDash(){
+  if(typeof echarts==='undefined'){ $('#dmsg').textContent='echarts 未加载'; return; }
+  MAIN_CHART=echarts.init($('#dmain')); TREND_CHART=echarts.init($('#dtrend'));
+  window.addEventListener('resize',()=>{MAIN_CHART.resize();TREND_CHART.resize();});
+  const d=await (await fetch('/api/ui/profiles')).json();
+  const p=await (await fetch('/api/ui/profile/'+d.default)).json();
+  try{ LATEST=(await (await fetch('/api/latest')).json()).date||''; }catch(e){}
+  DASH_META={metrics:p.metrics||{}, dims:p.dimensions||{}};
+  const ms=$('#dmetric'), ds=$('#ddim');
+  Object.entries(DASH_META.metrics).forEach(([k,v])=>{const o=document.createElement('option');o.value=k;o.textContent=v;ms.appendChild(o);});
+  Object.entries(DASH_META.dims).forEach(([k,v])=>{const o=document.createElement('option');o.value=k;o.textContent=v;ds.appendChild(o);});
+  if(qs.get('metric')&&DASH_META.metrics[qs.get('metric')]) ms.value=qs.get('metric');
+  if(qs.get('dim')&&DASH_META.dims[qs.get('dim')]) ds.value=qs.get('dim');
+  if(qs.get('range')) $('#drange').value=qs.get('range');
+  if(qs.get('chart')) $('#dchart').value=qs.get('chart');
+  if(qs.get('filter')) $('#dfilter').value=qs.get('filter');
+  renderDash();
+}
+async function renderDash(){
+  const metric=$('#dmetric').value, dim=$('#ddim').value;
+  const vf=$('#dfilter').value.trim();
+  const [s,e]=drangeDates($('#drange').value);
+  $('#dmsg').textContent='加载中…';
+  try{
+    const r=await (await fetch('/api/aggregate',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({metric, dimension:dim, start:s, end:e, topn:30, order:'DESC', value_filter:vf})})).json();
+    const total=r.total||0;
+    let scope='数据区间: '+s+' ~ '+e+(vf?(' · 过滤: '+dim+'='+vf):'');
+    if(LATEST) scope+=' · 📅 数仓数据截至 '+LATEST;
+    if(!total && e>LATEST && LATEST){
+      scope+=' —— 所选区间超出数据范围,请选择 '+LATEST+' 及以前的时段';
+      $('#dmsg').textContent=scope;
+      $('#dmeta').textContent=''; $('#dmainTitle').textContent='所选区间暂无数据';
+      if(MAIN_CHART) MAIN_CHART.clear(); if(TREND_CHART) TREND_CHART.clear();
+      return;
+    }
+    $('#dmsg').textContent=scope;
+    const items=(r.items||[]).map(x=>({name:x.value, value:Math.round((x.v||0)*100)/100}));
+    $('#dmainTitle').textContent=(DASH_META.dims[dim]||dim)+' · '+(DASH_META.metrics[metric]||metric)
+        +' 构成(合计 '+Number(r.total||0).toLocaleString()+', '+items.length+'组)';
+    const kind=$('#dchart').value==='auto' ? (items.length>0&&items.length<=6?'pie':'bar') : $('#dchart').value;
+    MAIN_CHART.clear();
+    if(kind==='pie'){
+      MAIN_CHART.setOption({color:PALETTE,
+        tooltip:{trigger:'item',formatter:'{b}: {c} ({d}%)'},
+        legend:{type:'scroll',orient:'vertical',right:8,top:'middle',itemWidth:12,itemHeight:12},
+        series:[{type:'pie',radius:['38%','68%'],center:['42%','52%'],data:items,
+          label:{formatter:'{b}\n{d}%'}}]});
+    }else{
+      MAIN_CHART.setOption({color:[PALETTE[0]],tooltip:{trigger:'axis'},
+        grid:{left:70,right:20,top:30,bottom:80},
+        xAxis:{type:'category',data:items.map(x=>x.name),axisLabel:{rotate:35,interval:0,fontSize:11}},
+        yAxis:{type:'value',splitLine:{lineStyle:{color:'#e5e8ef'}}},
+        series:[{type:'bar',data:items.map(x=>x.value),barMaxWidth:34,
+          itemStyle:{borderRadius:[4,4,0,0]},
+          label:{show:items.length<=15,position:'top',fontSize:10,
+            formatter:p=>Number(p.value).toLocaleString()}}]});
+    }
+    const today=new Date(); const s30=new Date(today); s30.setDate(s30.getDate()-29);
+    const q=await (await fetch('/api/query',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({metric, start:dstr(s30), end:dstr(today),
+        metric_name:DASH_META.metrics[metric]||metric,
+        dimension:dim, value_filter:vf})})).json();
+    const det=q.detail||[];
+    TREND_CHART.clear();
+    TREND_CHART.setOption({color:[PALETTE[1]],tooltip:{trigger:'axis'},
+      grid:{left:70,right:20,top:20,bottom:55},
+      xAxis:{type:'category',data:det.map(x=>x.date),axisLabel:{rotate:35,fontSize:11}},
+      yAxis:{type:'value',splitLine:{lineStyle:{color:'#e5e8ef'}}},
+      series:[{type:'line',data:det.map(x=>x.value),smooth:true,symbolSize:5,
+        areaStyle:{opacity:.08}}]});
+  }catch(ex){
+    $('#dmsg').textContent='加载失败: '+ex;
+  }
+}
+initDash();
+</script>
+</body>
+</html>

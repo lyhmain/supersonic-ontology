@@ -1,0 +1,142 @@
+{
+  "profile": "demo_tea",
+  "domain": "连锁茶饮（第二公司演示：零代码接入）",
+  "default_metric": "revenue",
+  "fact": {
+    "table": "demo_tea_orders t",
+    "date_col": "dt",
+    "paid_filter": "t.is_refund = 0"
+  },
+  "ads": {
+    "table": "demo_tea_orders",
+    "metric_exprs": {
+      "revenue": "SUM(CASE WHEN is_refund = 0 THEN amount ELSE 0 END)",
+      "cups": "SUM(CASE WHEN is_refund = 0 THEN cups ELSE 0 END)"
+    }
+  },
+  "metrics": {
+    "revenue": {
+      "name": "营业额",
+      "words": [
+        "营业额",
+        "流水",
+        "销售额"
+      ],
+      "col": "amount"
+    },
+    "cups": {
+      "name": "杯数",
+      "words": [
+        "杯数",
+        "出杯量",
+        "销量"
+      ],
+      "sum_col": "cups"
+    },
+    "price_per_cup": {
+      "name": "杯单价",
+      "words": [
+        "杯单价",
+        "均价"
+      ],
+      "derive": {
+        "num": "revenue",
+        "den": "cups"
+      }
+    }
+  },
+  "dimensions": {
+    "store": {
+      "name": "门店",
+      "words": [
+        "门店"
+      ],
+      "expr": "s.name",
+      "join": "LEFT JOIN demo_tea_store s ON t.store_id = s.id"
+    },
+    "city": {
+      "name": "城市",
+      "words": [
+        "城市"
+      ],
+      "expr": "s.city",
+      "join": "LEFT JOIN demo_tea_store s ON t.store_id = s.id"
+    }
+  },
+  "value_tokens": [
+    {
+      "attr": "store",
+      "regex": "([一-龥]{2,6}店)(?=近|是多少|营业额|杯数|，|。|,|$|\\s)"
+    }
+  ],
+  "holidays": {
+    "周年庆": {
+      "2026": [
+        "2026-09-15",
+        "2026-09-15"
+      ]
+    }
+  },
+  "intent": {
+    "analysis_words": [
+      "为什么",
+      "为何",
+      "原因",
+      "归因",
+      "解读",
+      "洞察",
+      "建议",
+      "分析"
+    ],
+    "ratio_words": [
+      "同比",
+      "环比",
+      "增长多少",
+      "变化率"
+    ],
+    "group_words": [
+      "各",
+      "每个",
+      "分别",
+      "排行",
+      "排名",
+      "最高",
+      "最低"
+    ]
+  },
+  "attribution_default_dims": [
+    "store",
+    "city"
+  ],
+  "anomaly": {
+    "z_warn": 2.0,
+    "z_crit": 3.0,
+    "baseline_days": 28
+  },
+  "acceptance": [
+    {
+      "q": "昨天营业额是多少",
+      "action": "aggregate",
+      "metric": "revenue",
+      "value": 9828.65
+    },
+    {
+      "q": "昨天杯数是多少",
+      "action": "aggregate",
+      "metric": "cups",
+      "value": 554
+    },
+    {
+      "q": "近30天各门店营业额",
+      "action": "aggregate",
+      "metric": "revenue",
+      "rows": 3
+    },
+    {
+      "q": "2026年周年庆营业额是多少",
+      "action": "aggregate",
+      "metric": "revenue",
+      "value": 15750
+    }
+  ]
+}

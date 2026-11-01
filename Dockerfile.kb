@@ -1,0 +1,10 @@
+FROM docker.m.daocloud.io/library/python:3.11-slim
+WORKDIR /app
+COPY requirements-kb.txt ./
+RUN pip install --no-cache-dir -i https://pypi.tuna.tsinghua.edu.cn/simple -r requirements-kb.txt
+COPY kb_rag ./kb_rag
+COPY web ./web
+RUN mkdir -p /app/data
+EXPOSE 9200
+ENV PORT=9200
+CMD ["sh", "-c", "python -m uvicorn web.app:app --host 0.0.0.0 --port ${PORT:-9200}"]
